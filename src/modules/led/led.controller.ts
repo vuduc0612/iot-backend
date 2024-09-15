@@ -1,4 +1,4 @@
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Post, Query } from "@nestjs/common";
 import { LedService } from "./led.service";
 
 
@@ -6,14 +6,13 @@ import { LedService } from "./led.service";
 export class LedController {
 
     constructor( private readonly ledService: LedService,) {}
-    @Get('on')
-    async turnOn() {
-        console.log('Led turned on');
-        return this.ledService.turnOn();
+    @Post('on')
+    async turnOn(@Query('id') id: number): Promise<boolean> {
+        return this.ledService.turnOn(id);
     }
 
-    @Get('off')
-    async turnOff() {
-        return this.ledService.turnOff();
+    @Post('off')
+    async turnOff(@Query('id') id: number): Promise<boolean> {
+        return this.ledService.turnOff(id);
     }
 }

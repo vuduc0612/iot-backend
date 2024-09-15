@@ -1,7 +1,7 @@
 import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity()
-export class Led {
+export class LedLog {
     @PrimaryGeneratedColumn()
     id: number;
 
