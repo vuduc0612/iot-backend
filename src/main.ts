@@ -9,6 +9,6 @@ async function bootstrap() {
     allowedHeaders: 'Content-Type, Accept', // Các tiêu đề được cho phép
     credentials: true,
   });
-  await app.listen(5324);
+  await app.listen(3333);
 }
 bootstrap();

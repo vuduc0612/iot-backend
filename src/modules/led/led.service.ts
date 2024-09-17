@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Led } from "./entity/led.entity";
 import { Repository } from "typeorm";
@@ -13,6 +13,7 @@ export class LedService {
         @InjectRepository(LedLog)
         private ledLogRepository: Repository<LedLog>,
         private readonly mqttService: MqttService,
+
     ) { }
 
     async turnOn(id: number): Promise<boolean> {
@@ -48,7 +49,7 @@ export class LedService {
 
         } catch (error) {
             console.error(error);
-            return false; 
+            return false;
         }
     }
 
@@ -77,14 +78,36 @@ export class LedService {
                 await this.ledLogRepository.save(newLedLog);
 
                 console.log(`${led.name} is turned OFF`);
-                return true; 
+                return true;
             } else {
                 console.log(`Failed to turn OFF LED ${id}`);
                 return false;
             }
         } catch (error) {
             console.error(error);
-            return false; 
+            return false;
+        }
+    }
+    async getAllStatusLeds(): Promise<{ id: number; status: boolean }[]> {
+        try {
+            const leds = await this.ledRepository.find();
+
+            if (!leds || leds.length === 0) {
+                throw new NotFoundException('No LEDs found');
+            }
+            const ledStatuses = leds.map(led => ({
+                id: led.id,
+                status: led.status,
+            }));
+            const ledStatusesJson = JSON.stringify(ledStatuses);
+
+            // Pub
+            this.mqttService.publish('recieve/led-status', ledStatusesJson);
+            // Map để trả về chỉ id và status của mỗi LED
+            return ledStatuses;
+        } catch (error) {
+            console.error(error);
+            throw new InternalServerErrorException("Error retrieving LED statuses");
         }
     }
 
@@ -92,8 +115,10 @@ export class LedService {
         return new Promise((resolve) => {
             this.mqttService.subscribe(`response_status`, (message) => {
                 const parsedMessage = JSON.parse(message);
+                //console.log(parsedMessage);
+
                 if (parsedMessage.led_id == id) {
-                    console.log(`Received response for LED ${id}:`, parsedMessage);
+                   // console.log(`Received response for LED ${id}:`, parsedMessage);
                     resolve(parsedMessage);
                 }
             });

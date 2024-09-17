@@ -1,8 +1,9 @@
 import { Module} from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
-import { MqttController } from './mqtt.controller';
+
 import { MqttService } from './mqtt.service';
 import { SensorModule } from '../sensor/sensor.module';
+import { EventsGateway } from '../gateway/gate-way';
 
 @Module({
     imports: [
@@ -19,8 +20,8 @@ import { SensorModule } from '../sensor/sensor.module';
         ]),
         SensorModule,
     ], 
-    controllers: [MqttController],
-    providers: [MqttService],
+    //controllers: [MqttController],
+    providers: [MqttService, EventsGateway],
     exports: [MqttService],
 })
 export class MqttModule {

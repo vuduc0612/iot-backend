@@ -1,8 +1,8 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Controller, Delete, Get, Query } from "@nestjs/common";
 import { SensorService } from "./sensor.service";
 import { PaginationDto } from './dto/pagination.dto';
 import { Sensor } from "./entity/sensor.entity";
-import { EventPattern } from "@nestjs/microservices";
+
 
 @Controller('api/sensor')
 export class SensorController {
@@ -20,14 +20,18 @@ export class SensorController {
     ): Promise<{ data: Sensor[], totalPages: number }> {
         return this.sensorService.getSensorData(sortKey, order, paginationDto, searchQuery, selectedSearchType);
     }
+    @Delete('data')
+    async deleteAllSensorData(): Promise<void> {
+        return this.sensorService.deleteAllSensorData();
+    }
+    @Delete('data/top')
+    async deleteTop100SensorData(): Promise<void> {
+        return this.sensorService.deleteTopNSensorData(100);
+    }
 
     // @Get('data/latest')
     // async getLatestSensorData(): Promise<Sensor> {
     //     return this.sensorService.listenToMqttMessages();
     // }
-    @EventPattern('esp8266/dht11')
-    handleMqttMessage(data: any) {
-        console.log('Received data:', data);
-        // Xử lý và lưu dữ liệu vào cơ sở dữ liệu hoặc gửi đến frontend
-    }
+   
 }

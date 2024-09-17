@@ -3,17 +3,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Sensor } from './entity/sensor.entity';
 import { Repository } from 'typeorm';
 import { PaginationDto } from './dto/pagination.dto';
-import { MqttService } from '../mqtt/mqtt.service'; // Import MqttService
+import { format } from 'date-fns';
 
 @Injectable()
 export class SensorService {
   constructor(
     @InjectRepository(Sensor)
     private sensorRepository: Repository<Sensor>,
-    private readonly mqttService: MqttService, // Inject MqttService
     
   ) {
-    this.listenToMqttMessages(); // Gọi hàm để lắng nghe dữ liệu MQTT
+    
   }
 
   async getSensorData(
@@ -54,24 +53,36 @@ export class SensorService {
     return { data, totalPages };
   }
 
-  async saveSensorData(temperature: number, humidity: number, light: number): Promise<Sensor> {
+  async saveSensorData(message: any): Promise<Sensor> {
+    const parsedMessage = JSON.parse(message);
+    const temperature = Math.round(parsedMessage.temperature);
+    const humidity = Math.round(parsedMessage.humidity);
+    const light = Math.round(parsedMessage.light);
+    //console.log(`Temperature: ${temperature}°C, Humidity: ${humidity}%, Light: ${light}Lux`);
+    const formattedDate = format(new Date(), 'yyyy-MM-dd HH:mm:ss');
     const sensorData = this.sensorRepository.create({
+      name: 'Sensor',
       temperature,
       humidity,
       light,
+      updatedAt: formattedDate,
+      status: true,
     });
+    //console.log(sensorData);
     return this.sensorRepository.save(sensorData);
   }
-  
-
-
-  private listenToMqttMessages() {
-    this.mqttService.subscribe('esp8266/dht11_data', (message) => {
-      // Xử lý dữ liệu nhận được từ MQTT
-      const parsedMessage = JSON.parse(message);
-      const { temperature, humidity } = parsedMessage;
-      //this.saveSensorData(temperature, humidity);
-      console.log(`Temperature: ${temperature}°C, Humidity: ${humidity}%`);
-    });
+  async deleteAllSensorData(): Promise<void> {
+    await this.sensorRepository.clear();
+    console.log('All sensor data has been deleted');
   }
+
+  async deleteTopNSensorData(n: number): Promise<void> {
+    const sensors = await this.sensorRepository.find({
+      order: { updatedAt: 'ASC' },
+      take: n,
+    });
+    await this.sensorRepository.remove(sensors);
+    console.log(`${n} sensor data entries have been deleted`);
+  }
+
 }

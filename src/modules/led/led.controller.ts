@@ -1,4 +1,4 @@
-import { Controller, Post, Query } from "@nestjs/common";
+import { Controller, Get, Post, Query } from "@nestjs/common";
 import { LedService } from "./led.service";
 
 
@@ -15,4 +15,8 @@ export class LedController {
     async turnOff(@Query('id') id: number): Promise<boolean> {
         return this.ledService.turnOff(id);
     }
-}
+    @Get('status')
+    async getAllLedStatus() {
+        return await this.ledService.getAllStatusLeds();
+    }
+} 

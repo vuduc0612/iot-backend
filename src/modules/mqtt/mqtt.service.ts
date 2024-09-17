@@ -1,10 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as mqtt from 'mqtt'; // Import mqtt library
+import { EventsGateway } from '../gateway/gate-way';
 
 @Injectable()
 export class MqttService {
   private logger = new Logger('MqttService');
   private client: mqtt.MqttClient;
+  private eventsGateway: EventsGateway;
 
   constructor() {
     this.connectToMqttBroker();
@@ -24,6 +26,17 @@ export class MqttService {
     this.client.on('error', (error) => {
       this.logger.error('MQTT connection error:', error);
     });
+    
+    // this.client.on('message', (topic, message) => {
+    //   if (topic === 'sensor/data') {
+    //   const parsedMessage = message.toString();
+    //   console.log('Received MQTT message:', parsedMessage);
+    //   // Emit the data to WebSocket clients
+    //   //this.eventsGateway.server.emit('sensorData', parsedMessage);
+    //   }
+    // });
+
+    
   }
   publish(topic: string, message: string) {
     this.client.publish(topic, message, {}, (error) => {
@@ -33,7 +46,6 @@ export class MqttService {
     });
   }
 
-  // Lắng nghe tin nhắn từ một topic
   subscribe(topic: string, callback: (message: any) => void) {
     this.client.subscribe(topic, (err) => {
       if (err) {
