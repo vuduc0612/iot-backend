@@ -19,7 +19,9 @@ export class EventsGateway {
               private sensorService: SensorService) {
       // Subscribe to MQTT topic and broadcast data to clients
       this.mqttService.subscribe('sensor/data', (message) => {
+        console.log('Received message:', message);
         this.server.emit('sensorData', message); // Send data to all connected clients
+        console.log('save data');
         this.sensorService.saveSensorData(message); // Save data to database
       });
     }

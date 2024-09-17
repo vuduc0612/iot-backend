@@ -95,12 +95,13 @@ export class LedService {
             if (!leds || leds.length === 0) {
                 throw new NotFoundException('No LEDs found');
             }
+            //console.log(leds);
             const ledStatuses = leds.map(led => ({
                 id: led.id,
                 status: led.status,
             }));
             const ledStatusesJson = JSON.stringify(ledStatuses);
-
+            //console.log(ledStatuses);
             // Pub
             this.mqttService.publish('recieve/led-status', ledStatusesJson);
             // Map để trả về chỉ id và status của mỗi LED

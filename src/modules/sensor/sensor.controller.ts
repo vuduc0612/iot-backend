@@ -26,7 +26,7 @@ export class SensorController {
     }
     @Delete('data/top')
     async deleteTop100SensorData(): Promise<void> {
-        return this.sensorService.deleteTopNSensorData(100);
+        return this.sensorService.deleteTopNSensorData(300);
     }
 
     // @Get('data/latest')
