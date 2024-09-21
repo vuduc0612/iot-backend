@@ -4,16 +4,14 @@ import { Sensor } from './entity/sensor.entity';
 import { Repository } from 'typeorm';
 import { PaginationDto } from './dto/pagination.dto';
 import { format } from 'date-fns';
-
+import { parse, isValid, startOfDay, endOfDay, setHours, setMinutes, setSeconds } from 'date-fns';
 @Injectable()
 export class SensorService {
   constructor(
     @InjectRepository(Sensor)
     private sensorRepository: Repository<Sensor>,
     
-  ) {
-    
-  }
+  ) { }
 
   async getSensorData(
     sortKey: string,
@@ -31,19 +29,105 @@ export class SensorService {
       query.orderBy(`sensor.${sortKey}`, orderBy);
     }
 
+    // if (searchQuery && selectedSearchType) {
+    //   //selectedSearchType = selectedSearchType.toLowerCase();
+    //   if (['temperature', 'humidity', 'light'].includes(selectedSearchType)) {
+    //     query.andWhere(`sensor.${selectedSearchType} = :searchQuery`, {
+    //       searchQuery: searchQuery,
+    //     });
+    //   } else {
+    //     query.andWhere(`sensor.${selectedSearchType} LIKE :searchQuery`, {
+    //       searchQuery: `%${searchQuery}%`,
+    //     });
+    //   }
+    // }
+
     if (searchQuery && selectedSearchType) {
-      selectedSearchType = selectedSearchType.toLowerCase();
-      if (['temperature', 'humidity', 'light'].includes(selectedSearchType)) {
-        query.andWhere(`sensor.${selectedSearchType} = :searchQuery`, {
-          searchQuery: searchQuery,
-        });
-      } else {
-        query.andWhere(`sensor.${selectedSearchType} LIKE :searchQuery`, {
-          searchQuery: `%${searchQuery}%`,
-        });
+      switch ((selectedSearchType as string).toLowerCase()) {
+        case 'updatedat':
+          const dateRegex = /\b\d{2}\/\d{2}\/\d{4}\b/; // DD/MM/YYYY
+          const timeRegex = /\b\d{2}:\d{2}(?::\d{2})?\b/; // HH:mm or HH:mm:ss
+
+          const hasDate = dateRegex.test(searchQuery as string);
+          const hasTime = timeRegex.test(searchQuery as string);
+
+          let searchDate = null;
+          let searchTime = null;
+
+          if (hasDate) {
+            const datePart = (searchQuery as string).match(dateRegex)[0];
+            searchDate = parse(datePart, 'dd/MM/yyyy', new Date());
+            if (!isValid(searchDate)) {
+              searchDate = null;
+            }
+          }
+
+          if (hasTime) {
+            const timeMatch = (searchQuery as string).match(timeRegex);
+            searchTime = timeMatch ? timeMatch[0] : null;
+          }
+
+          if (searchDate && searchTime) {
+            // Both date and time provided
+            const timeParts = searchTime.split(':').map(Number);
+            const hours = timeParts[0];
+            const minutes = timeParts[1];
+            const seconds = timeParts[2] || 0;
+
+            const startDateTime = setSeconds(setMinutes(setHours(searchDate, hours), minutes), seconds);
+            const endDateTime = new Date(startDateTime.getTime() + (seconds ? 1000 : 60000)); // 1 second or 1 minute range
+
+            query.andWhere('sensor.updatedAt BETWEEN :startDateTime AND :endDateTime', {
+              startDateTime,
+              endDateTime,
+            });
+          } else if (searchDate) {
+            // Only date provided
+            const startDate = startOfDay(searchDate);
+            const endDate = endOfDay(searchDate);
+
+            query.andWhere('sensor.updatedAt BETWEEN :startDate AND :endDate', {
+              startDate,
+              endDate,
+            });
+          } else if (searchTime) {
+            // Only time provided
+            // Determine if seconds are included
+            const timeParts = searchTime.split(':');
+            let timePattern = '';
+
+            if (timeParts.length === 3) {
+              // Exact time match with seconds
+              timePattern = searchTime + '%'; // Allows for exact second match
+            } else if (timeParts.length === 2) {
+              // Partial time match without seconds
+              timePattern = searchTime + ':%'; // Matches any seconds
+            }
+
+            if (timePattern) {
+              // PostgreSQL example
+              query.andWhere("TO_CHAR(sensor.updatedAt, 'HH24:MI:SS') LIKE :searchTimePattern", {
+                searchTimePattern: timePattern,
+              });
+
+              // For MySQL, use:
+              // query.andWhere("TIME(sensor.updatedAt) LIKE :searchTimePattern", { searchTimePattern: timePattern });
+            }
+          } else {
+            // Fallback to text search if format is incorrect
+            query.andWhere('sensor.updatedAt::text LIKE :searchQuery', {
+              searchQuery: `%${searchQuery}%`,
+            });
+          }
+          break;
+
+        // Handle other search types...
+        default:
+          query.andWhere(`CAST(sensor.${selectedSearchType} AS TEXT) LIKE :searchQuery`, {
+            searchQuery: `%${searchQuery}%`,
+          });
       }
     }
-
     // Phân trang
     query.skip((page - 1) * limit).take(limit);
     const totalCount = await query.getCount();
