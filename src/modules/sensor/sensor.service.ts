@@ -29,18 +29,6 @@ export class SensorService {
       query.orderBy(`sensor.${sortKey}`, orderBy);
     }
 
-    // if (searchQuery && selectedSearchType) {
-    //   //selectedSearchType = selectedSearchType.toLowerCase();
-    //   if (['temperature', 'humidity', 'light'].includes(selectedSearchType)) {
-    //     query.andWhere(`sensor.${selectedSearchType} = :searchQuery`, {
-    //       searchQuery: searchQuery,
-    //     });
-    //   } else {
-    //     query.andWhere(`sensor.${selectedSearchType} LIKE :searchQuery`, {
-    //       searchQuery: `%${searchQuery}%`,
-    //     });
-    //   }
-    // }
 
     if (searchQuery && selectedSearchType) {
       switch ((selectedSearchType as string).toLowerCase()) {

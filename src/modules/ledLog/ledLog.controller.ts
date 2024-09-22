@@ -21,8 +21,10 @@ export class LedLogController {
     async getSensorData(
         @Query('sortKey') sortKey: string,
         @Query('order') order: 'asc' | 'desc' = 'asc',
-        @Query() paginationDto: PaginationDto
+        @Query() paginationDto: PaginationDto,
+        @Query('searchQuery') searchQuery: string,
+        @Query('selectedSearchType') selectedSearchType: string,
     ): Promise<{ data: LedLog[], totalPages: number }> {
-        return this.ledLogService.getLogData(sortKey, order, paginationDto);
+        return this.ledLogService.getLogData(sortKey, order, paginationDto, searchQuery, selectedSearchType);
     }
 }
