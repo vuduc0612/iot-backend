@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { LedLog } from "./entity/ledLog.entity";
 import { PaginationDto } from "../sensor/dto/pagination.dto";
-import { Repository } from "typeorm";
+import {  Repository } from "typeorm";
 import { parse, endOfDay, isValid, setHours, setMinutes, setSeconds, startOfDay } from "date-fns";
 
 
@@ -117,17 +117,86 @@ export class LedLogService {
                     break;
                 default:
                     let status = null;
-                    if(searchQuery.toLowerCase() === 'on'){
+                    if (searchQuery.toLowerCase() === 'on') {
                         status = true;
                     }
-                    else if(searchQuery.toLowerCase() === 'off'){
+                    else if (searchQuery.toLowerCase() === 'off') {
                         status = false;
                     }
                     console.log(status);
                     query.andWhere(`ledLog.${selectedSearchType} = :status`, {
                         status,
-                    }); 
-                    
+                    });
+
+            }
+        }
+        else if (searchQuery) {
+            const dateRegex = /(\d{2}\/\d{2}\/\d{4})/;
+            const timeRegex = /(\d{2}:\d{2})/;
+
+            const dateMatch = searchQuery.match(dateRegex);
+            const timeMatch = searchQuery.match(timeRegex);
+
+            if (dateMatch) {
+                const dateStr = dateMatch[1];
+                const searchDate = parse(dateStr, 'dd/MM/yyyy', new Date());
+
+                if (isValid(searchDate)) {
+                    const startOfSearchDate = startOfDay(searchDate);
+                    const endOfSearchDate = endOfDay(searchDate);
+
+                    if (timeMatch) {
+                        // Tìm kiếm cả ngày và giờ
+                        const [hours, minutes] = timeMatch[1].split(':').map(Number);
+                        const startTime = setMinutes(setHours(startOfSearchDate, hours), minutes);
+                        const endTime = setMinutes(setHours(startOfSearchDate, hours), minutes + 1);
+
+                        query.andWhere('ledLog.updatedAt >= :startTime AND ledLog.updatedAt < :endTime', {
+                            startTime,
+                            endTime,
+                        });
+                    } else {
+                        // Chỉ tìm kiếm theo ngày
+                        query.andWhere('ledLog.updatedAt >= :startOfSearchDate AND ledLog.updatedAt <= :endOfSearchDate', {
+                            startOfSearchDate,
+                            endOfSearchDate,
+                        });
+                    }
+                } else {
+                    console.error('Invalid date format');
+                }
+            } else if (timeMatch) {
+                // Chỉ tìm kiếm theo giờ (cho tất cả các ngày)
+                const [hours, minutes] = timeMatch[1].split(':').map(Number);
+
+                // PostgreSQL
+                query.andWhere("EXTRACT(HOUR FROM ledLog.updatedAt) = :hours AND EXTRACT(MINUTE FROM ledLog.updatedAt) = :minutes", {
+                    hours,
+                    minutes,
+                });
+            } else {
+                if(searchQuery.toLowerCase() === 'on' || searchQuery.toLowerCase() === 'off'){
+                    let status = null;
+                    if (searchQuery.toLowerCase() === 'on') {
+                        status = true;
+                    }
+                    else if (searchQuery.toLowerCase() === 'off') {
+                        status = false;
+                    }
+                    console.log(status);
+                    query.andWhere(`ledLog.name = :status`, {
+                        status,
+                    });
+                }
+                else {
+                    const tmp = searchQuery.toLowerCase();
+                    const newQuery = tmp.charAt(0).toUpperCase() + tmp.slice(1);
+                    console.log(newQuery);
+                    query.andWhere(`CAST(ledLog.name AS TEXT) LIKE :searchQuery`, {
+                        searchQuery: `%${newQuery}%`,
+                    });
+                }
+
             }
         }
 

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Sensor } from './entity/sensor.entity';
-import { Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import { PaginationDto } from './dto/pagination.dto';
 import { format } from 'date-fns';
 import { parse, isValid, startOfDay, endOfDay, setHours, setMinutes, setSeconds } from 'date-fns';
@@ -10,7 +10,7 @@ export class SensorService {
   constructor(
     @InjectRepository(Sensor)
     private sensorRepository: Repository<Sensor>,
-    
+
   ) { }
 
   async getSensorData(
@@ -22,7 +22,7 @@ export class SensorService {
   ): Promise<{ data: Sensor[], totalPages: number }> {
     const { page = 1, limit = 12 } = paginationDto;
     const query = this.sensorRepository.createQueryBuilder('sensor');
-    
+
     // Sắp xếp và tìm kiếm
     if (sortKey) {
       const orderBy = order === 'asc' ? 'ASC' : 'DESC';
@@ -116,6 +116,95 @@ export class SensorService {
           });
       }
     }
+    else if (searchQuery) {
+      // // Tìm kiếm tổng thể trên tất cả các trường
+      // console.log(searchQuery);
+      // const dateTimeRegex = /(\d{2}:\d{2}:\d{2})\s+(\d{2}\/\d{2}\/\d{4})/;
+      // const match = searchQuery.match(dateTimeRegex);
+
+      // if (match) {
+      //   const [, timeStr, dateStr] = match;
+      //   const searchDate = parse(dateStr, 'dd/MM/yyyy', new Date());
+
+      //   if (isValid(searchDate)) {
+      //     const [hours, minutes, seconds] = timeStr.split(':').map(Number);
+      //     const searchDateTime = setSeconds(setMinutes(setHours(searchDate, hours), minutes), seconds);
+
+      //     // Tạo khoảng thời gian 1 phút (có thể điều chỉnh)
+      //     const startDateTime = searchDateTime;
+      //     //const endDateTime = addMinutes(searchDateTime, 1/60);
+
+      //     query.andWhere('sensor.updatedAt = :startDateTime', {
+      //       startDateTime,
+
+      //     });
+      //   } else {
+      //     // Xử lý trường hợp ngày không hợp lệ
+      //     console.error('Invalid date format');
+      //   }
+      // } else {
+      //   // Nếu không khớp với định dạng ngày giờ, thực hiện tìm kiếm tổng thể
+      //   query.andWhere(new Brackets(qb => {
+      //     qb.where('CAST(sensor.id AS TEXT) = :searchQuery', { searchQuery })
+      //       .orWhere('sensor.name = :searchQuery', { searchQuery })
+      //       .orWhere('CAST(sensor.temperature AS TEXT) = :searchQuery', { searchQuery })
+      //       .orWhere('CAST(sensor.humidity AS TEXT) = :searchQuery', { searchQuery })
+      //       .orWhere('CAST(sensor.light AS TEXT) = :searchQuery', { searchQuery });
+      //   }));
+      // }
+      const dateRegex = /(\d{2}\/\d{2}\/\d{4})/;
+      const timeRegex = /(\d{2}:\d{2})/;
+
+      const dateMatch = searchQuery.match(dateRegex);
+      const timeMatch = searchQuery.match(timeRegex);
+
+      if (dateMatch) {
+        const dateStr = dateMatch[1];
+        const searchDate = parse(dateStr, 'dd/MM/yyyy', new Date());
+
+        if (isValid(searchDate)) {
+          const startOfSearchDate = startOfDay(searchDate);
+          const endOfSearchDate = endOfDay(searchDate);
+
+          if (timeMatch) {
+            // Tìm kiếm cả ngày và giờ
+            const [hours, minutes] = timeMatch[1].split(':').map(Number);
+            const startTime = setMinutes(setHours(startOfSearchDate, hours), minutes);
+            const endTime = setMinutes(setHours(startOfSearchDate, hours), minutes + 1);
+
+            query.andWhere('sensor.updatedAt >= :startTime AND sensor.updatedAt < :endTime', {
+              startTime,
+              endTime,
+            });
+          } else {
+            // Chỉ tìm kiếm theo ngày
+            query.andWhere('sensor.updatedAt >= :startOfSearchDate AND sensor.updatedAt <= :endOfSearchDate', {
+              startOfSearchDate,
+              endOfSearchDate,
+            });
+          }
+        } else {
+          console.error('Invalid date format');
+        }
+      } else if (timeMatch) {
+        // Chỉ tìm kiếm theo giờ (cho tất cả các ngày)
+        const [hours, minutes] = timeMatch[1].split(':').map(Number);
+
+        // PostgreSQL
+        query.andWhere("EXTRACT(HOUR FROM sensor.updatedAt) = :hours AND EXTRACT(MINUTE FROM sensor.updatedAt) = :minutes", {
+          hours,
+          minutes,
+        });
+      } else {
+        // Tìm kiếm tổng thể nếu không phải là ngày hoặc giờ
+        query.andWhere(new Brackets(qb => {
+          qb.where('CAST(sensor.temperature AS TEXT) = :searchQuery', { searchQuery })
+          .orWhere('CAST(sensor.humidity AS TEXT) = :searchQuery', { searchQuery })
+          .orWhere('CAST(sensor.light AS TEXT) = :searchQuery', { searchQuery });
+        }));
+      }
+    }
+
     // Phân trang
     query.skip((page - 1) * limit).take(limit);
     const totalCount = await query.getCount();
