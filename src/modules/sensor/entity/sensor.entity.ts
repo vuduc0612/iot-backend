@@ -20,6 +20,5 @@ export class Sensor {
     @Column()
     updatedAt: Date;
 
-    @Column()
-    status: boolean;
-}
+
+} 

@@ -227,7 +227,6 @@ export class SensorService {
       humidity,
       light,
       updatedAt: formattedDate,
-      status: true,
     });
     //console.log(sensorData);
     return this.sensorRepository.save(sensorData);

@@ -14,6 +14,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
                 port: configService.getOrThrow('DB_PORT'),
                 autoLoadEntities: true,
                 synchronize: true,
+                
             }),
             inject: [ConfigService],
         })
