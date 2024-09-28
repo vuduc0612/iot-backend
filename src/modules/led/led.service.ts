@@ -24,7 +24,7 @@ export class LedService {
             }
 
             //Pub
-            this.mqttService.publish('led_state', `{led_id: ${id}, status: 'ON'}`);
+            this.mqttService.publish('led_state_ducdz', `{led_id: ${id}, status: 'ON'}`);
 
             //sub
             const mqttResponse = await this.waitForMqttResponse(id);
@@ -61,7 +61,7 @@ export class LedService {
             }
 
             // pub
-            this.mqttService.publish('led_state', `{led_id: ${id}, status: 'OFF'}`);
+            this.mqttService.publish('led_state_ducdz', `{led_id: ${id}, status: 'OFF'}`);
 
             // sub
             const mqttResponse = await this.waitForMqttResponse(id);
@@ -103,23 +103,64 @@ export class LedService {
             const ledStatusesJson = JSON.stringify(ledStatuses);
             //console.log(ledStatuses);
             // Pub
-            this.mqttService.publish('recieve/led-status', ledStatusesJson);
-            // Map để trả về chỉ id và status của mỗi LED
+            this.mqttService.publish('recieve/led-status_ducdz', ledStatusesJson);
+            //console.log(ledStatuses)
+            //console.log('Published LED statuses to MQTT');
             return ledStatuses;
         } catch (error) {
             console.error(error);
             throw new InternalServerErrorException("Error retrieving LED statuses");
         }
     }
+    async updateLedsStatuses(message: any): Promise<void> {
+        try {
+            let parsedMessage = message;
+            if (typeof message === 'string') {
+                parsedMessage = JSON.parse(message);
+            } else if (typeof message !== 'object' || message === null) {
+                console.error('Invalid message format:', message);
+                return;
+            }
+    
+            const ledStatus1 = parsedMessage.stled1;
+            const ledStatus2 = parsedMessage.stled2;
+            const ledStatus3 = parsedMessage.stled3;
+    
+            if (ledStatus1 === undefined || ledStatus2 === undefined || ledStatus3 === undefined) {
+                console.error('Missing LED status in message:', parsedMessage);
+                return;
+            }
+    
+            const ledStatuses = [
+                { 'id': 1, 'status': ledStatus1 },
+                { 'id': 2, 'status': ledStatus2 },
+                { 'id': 3, 'status': ledStatus3 }
+            ];
+    
+            for (const ledStatus of ledStatuses) {
+                const led = await this.ledRepository.findOne({ where: { id: ledStatus.id } });
+                if (led) {
+                    led.status = ledStatus.status;
+                    led.updatedAt = new Date();
+                    console.log(`Updating LED ${led.id} status to ${led.status}`);
+                    await this.ledRepository.save(led);
+                } else {
+                    console.warn(`LED with id ${ledStatus.id} not found`);
+                }
+            }
+        } catch (error) {
+            console.error('Error updating LED statuses:', error);
+        }
+    }
 
     waitForMqttResponse(id: number): Promise<any> {
         return new Promise((resolve) => {
-            this.mqttService.subscribe(`response_status`, (message) => {
+            this.mqttService.subscribe(`response_status_ducdz`, (message) => {
                 const parsedMessage = JSON.parse(message);
                 //console.log(parsedMessage);
 
                 if (parsedMessage.led_id == id) {
-                   // console.log(`Received response for LED ${id}:`, parsedMessage);
+                    // console.log(`Received response for LED ${id}:`, parsedMessage);
                     resolve(parsedMessage);
                 }
             });

@@ -16,7 +16,7 @@ export class MqttService {
   private connectToMqttBroker() {
     this.client = mqtt.connect('mqtt://broker.emqx.io:1883', {
       username: 'huuduc',
-      password: '123',
+      password: 'xyz123@1206',
     });
 
     this.client.on('connect', () => {
@@ -26,7 +26,7 @@ export class MqttService {
     this.client.on('error', (error) => {
       this.logger.error('MQTT connection error:', error);
     });
-    
+  
   }
   publish(topic: string, message: string) {
     this.client.publish(topic, message, {}, (error) => {

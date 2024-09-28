@@ -42,8 +42,4 @@ export class SensorController {
         return this.sensorService.deleteTopNSensorData(100);
     }
 
-    // @Get('data/latest')
-    // async getLatestSensorData(): Promise<Sensor> {
-    //     return this.sensorService.listenToMqttMessages();
-    // }
 }

@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { LedLog } from "./entity/ledLog.entity";
 import { PaginationDto } from "../sensor/dto/pagination.dto";
-import {  Repository } from "typeorm";
+import { Repository } from "typeorm";
 import { parse, endOfDay, isValid, setHours, setMinutes, setSeconds, startOfDay } from "date-fns";
 
 
@@ -131,51 +131,73 @@ export class LedLogService {
             }
         }
         else if (searchQuery) {
-            const dateRegex = /(\d{2}\/\d{2}\/\d{4})/;
-            const timeRegex = /(\d{2}:\d{2})/;
+            const dateRegex = /\b\d{2}\/\d{2}\/\d{4}\b/; // DD/MM/YYYY
+            const timeRegex = /\b\d{2}:\d{2}(?::\d{2})?\b/; // HH:mm or HH:mm:ss
 
-            const dateMatch = searchQuery.match(dateRegex);
-            const timeMatch = searchQuery.match(timeRegex);
+            const hasDate = dateRegex.test(searchQuery as string);
+            const hasTime = timeRegex.test(searchQuery as string);
 
-            if (dateMatch) {
-                const dateStr = dateMatch[1];
-                const searchDate = parse(dateStr, 'dd/MM/yyyy', new Date());
+            let searchDate = null;
+            let searchTime = null;
 
-                if (isValid(searchDate)) {
-                    const startOfSearchDate = startOfDay(searchDate);
-                    const endOfSearchDate = endOfDay(searchDate);
-
-                    if (timeMatch) {
-                        // Tìm kiếm cả ngày và giờ
-                        const [hours, minutes] = timeMatch[1].split(':').map(Number);
-                        const startTime = setMinutes(setHours(startOfSearchDate, hours), minutes);
-                        const endTime = setMinutes(setHours(startOfSearchDate, hours), minutes + 1);
-
-                        query.andWhere('ledLog.updatedAt >= :startTime AND ledLog.updatedAt < :endTime', {
-                            startTime,
-                            endTime,
-                        });
-                    } else {
-                        // Chỉ tìm kiếm theo ngày
-                        query.andWhere('ledLog.updatedAt >= :startOfSearchDate AND ledLog.updatedAt <= :endOfSearchDate', {
-                            startOfSearchDate,
-                            endOfSearchDate,
-                        });
-                    }
-                } else {
-                    console.error('Invalid date format');
+            if (hasDate) {
+                const datePart = (searchQuery as string).match(dateRegex)[0];
+                searchDate = parse(datePart, 'dd/MM/yyyy', new Date());
+                if (!isValid(searchDate)) {
+                    searchDate = null;
                 }
-            } else if (timeMatch) {
-                // Chỉ tìm kiếm theo giờ (cho tất cả các ngày)
-                const [hours, minutes] = timeMatch[1].split(':').map(Number);
+            }
 
-                // PostgreSQL
-                query.andWhere("EXTRACT(HOUR FROM ledLog.updatedAt) = :hours AND EXTRACT(MINUTE FROM ledLog.updatedAt) = :minutes", {
-                    hours,
-                    minutes,
+            if (hasTime) {
+                const timeMatch = (searchQuery as string).match(timeRegex);
+                searchTime = timeMatch ? timeMatch[0] : null;
+            }
+
+            if (searchDate && searchTime) {
+                // Both date and time provided
+                const timeParts = searchTime.split(':').map(Number);
+                const hours = timeParts[0];
+                const minutes = timeParts[1];
+                const seconds = timeParts[2] || 0;
+
+                const startDateTime = setSeconds(setMinutes(setHours(searchDate, hours), minutes), seconds);
+                const endDateTime = new Date(startDateTime.getTime() + (seconds ? 1000 : 60000)); // 1 second or 1 minute range
+
+                query.andWhere('ledLog.updatedAt BETWEEN :startDateTime AND :endDateTime', {
+                    startDateTime,
+                    endDateTime,
                 });
+            } else if (searchDate) {
+                // Only date provided
+                const startDate = startOfDay(searchDate);
+                const endDate = endOfDay(searchDate);
+
+                query.andWhere('ledLog.updatedAt BETWEEN :startDate AND :endDate', {
+                    startDate,
+                    endDate,
+                });
+            } else if (searchTime) {
+                // Only time provided 
+                // Determine if seconds are included
+                const timeParts = searchTime.split(':');
+                let timePattern = '';
+
+                if (timeParts.length === 3) {
+                    // Exact time match with seconds
+                    timePattern = searchTime + '%'; // Allows for exact second match
+                } else if (timeParts.length === 2) {
+                    // Partial time match without seconds
+                    timePattern = searchTime + ':%'; // Matches any seconds
+                }
+
+                if (timePattern) {
+                    // PostgreSQL example
+                    query.andWhere("TO_CHAR(ledLog.updatedAt, 'HH24:MI:SS') LIKE :searchTimePattern", {
+                        searchTimePattern: timePattern,
+                    });
+                }
             } else {
-                if(searchQuery.toLowerCase() === 'on' || searchQuery.toLowerCase() === 'off'){
+                if (searchQuery.toLowerCase() === 'on' || searchQuery.toLowerCase() === 'off') {
                     let status = null;
                     if (searchQuery.toLowerCase() === 'on') {
                         status = true;
@@ -209,5 +231,6 @@ export class LedLogService {
 
         return { data, totalPages };
     }
+    
 
 }

@@ -14,13 +14,13 @@ import { SensorModule } from '../sensor/sensor.module';
                 options: {
                     url: 'mqtt://broker.emqx.io:1883',
                     username: 'huuduc',  // Nếu cần
-                    password: '123',     // Nếu cần
+                    password: 'xyz123@1206',     // Nếu cần
                 },
             },
         ]),
         SensorModule,
     ], 
-    //controllers: [MqttController],
+    
     providers: [MqttService],
     exports: [MqttService],
 })

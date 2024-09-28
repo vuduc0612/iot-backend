@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 
 import { LedController } from "./led.controller";
 import { LedService } from "./led.service";
@@ -7,12 +7,17 @@ import { Led } from "./entity/led.entity";
 import { LedLog } from "../ledLog/entity/ledLog.entity";
 import { MqttModule } from "../mqtt/mqtt.module";
 
+import { SensorModule } from "../sensor/sensor.module";
+
+
 @Module({
     imports: [
         TypeOrmModule.forFeature([Led, LedLog]),
-        MqttModule
+        MqttModule,
+        forwardRef(() => SensorModule)
     ],
     controllers: [LedController],
     providers: [LedService],
+    exports: [LedService]
 })
 export class LedModule { }
